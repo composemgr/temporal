@@ -1,0 +1,30 @@
+# nginx proxy address - http://172.17.0.1:7233
+
+name: temporal
+x-logging: &default-logging
+  options:
+    max-size: '5m'
+    max-file: '1'
+  driver: json-file
+
+services:
+  app:
+    image: temporalio/auto-setup:latest
+    container_name: temporal-app
+    hostname: ${BASE_HOST_NAME:-$HOSTNAME}
+    restart: always
+    pull_policy: always
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-America/New_York}
+    ports:
+      - '172.17.0.1:7233:7233'
+    volumes:
+      - './rootfs/data/temporal:/data'
+    networks:
+      - temporal
+
+networks:
+  temporal:
+    name: temporal
+    external: false
