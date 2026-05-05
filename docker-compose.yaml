@@ -20,7 +20,7 @@ services:
     ports:
       - '172.17.0.1:7233:7233'
     volumes:
-      - './rootfs/data/temporal:/data'
+      - './volumes/data/temporal:/data'
     networks:
       - temporal
 
