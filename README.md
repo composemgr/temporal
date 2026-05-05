@@ -45,7 +45,7 @@ See `docker-compose.yaml` for complete list of configurable options.
 
 ## 📂 Volumes
 
-- `./rootfs/data/temporal` - Data storage
+- `./volumes/data/temporal` - Data storage
 
 ## 🔍 Logging
 
