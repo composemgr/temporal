@@ -25,14 +25,34 @@ services:
       DEFAULT_NAMESPACE: ${TEMPORAL_NAMESPACE:-default}
       DEFAULT_NAMESPACE_RETENTION: ${TEMPORAL_NAMESPACE_RETENTION:-24h}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      CONTAINER_NAME: temporal-app
+      HOSTNAME: ${BASE_HOST_NAME:-$HOSTNAME}
     ports:
       - '172.17.0.1:7233:7233'
     volumes:
       - './volumes/data/temporal:/data'
     depends_on:
       - temporal-db
+    labels:
+      - 'traefik.enable=true'
+      - 'cloudflare.enable=true'
+      - 'traefik.docker.network=proxy'
+      - 'cloudflare.service=http://temporal-app:7233'
+      - 'cloudflare.hostname=temporal.${CLOUDFLARE_ZONE_NAME:-}'
+      - 'traefik.http.routers.temporal-app.entrypoints=http'
+      - 'traefik.http.routers.temporal-app-secure.tls=true'
+      - 'traefik.http.routers.temporal-app.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
+      - 'traefik.http.middlewares.temporal-app-https-redirect.redirectscheme.scheme=https'
+      - 'traefik.http.routers.temporal-app.middlewares=temporal-app-https-redirect'
+      - 'traefik.http.routers.temporal-app-secure.entrypoints=https'
+      - 'traefik.http.routers.temporal-app-secure.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
+      - 'traefik.http.routers.temporal-app-secure.tls.certresolver=cloudflare'
+      - 'traefik.http.routers.temporal-app-secure.service=temporal-app'
+      - 'traefik.http.services.temporal-app.loadbalancer.server.port=7233'
     networks:
       - temporal
+      - proxy
+      - cloudflare
 
   temporal-ui:
     image: temporalio/ui:latest
@@ -44,12 +64,32 @@ services:
       TZ: ${TZ:-America/New_York}
       TEMPORAL_ADDRESS: temporal-app:7233
       TEMPORAL_CORS_ORIGINS: http://${BASE_HOST_NAME:-localhost}:8080
+      CONTAINER_NAME: temporal-ui
+      HOSTNAME: ${BASE_HOST_NAME:-$HOSTNAME}
     ports:
       - '172.17.0.1:8080:8080'
     depends_on:
       - app
+    labels:
+      - 'traefik.enable=true'
+      - 'cloudflare.enable=true'
+      - 'traefik.docker.network=proxy'
+      - 'cloudflare.service=http://temporal-ui:8080'
+      - 'cloudflare.hostname=temporal.${CLOUDFLARE_ZONE_NAME:-}'
+      - 'traefik.http.routers.temporal-ui.entrypoints=http'
+      - 'traefik.http.routers.temporal-ui-secure.tls=true'
+      - 'traefik.http.routers.temporal-ui.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
+      - 'traefik.http.middlewares.temporal-ui-https-redirect.redirectscheme.scheme=https'
+      - 'traefik.http.routers.temporal-ui.middlewares=temporal-ui-https-redirect'
+      - 'traefik.http.routers.temporal-ui-secure.entrypoints=https'
+      - 'traefik.http.routers.temporal-ui-secure.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
+      - 'traefik.http.routers.temporal-ui-secure.tls.certresolver=cloudflare'
+      - 'traefik.http.routers.temporal-ui-secure.service=temporal-ui'
+      - 'traefik.http.services.temporal-ui.loadbalancer.server.port=8080'
     networks:
       - temporal
+      - proxy
+      - cloudflare
 
   temporal-db:
     image: postgres:latest
@@ -62,6 +102,7 @@ services:
       POSTGRES_DB: ${DB_CREATE_DATABASE_NAME:-temporal}
       POSTGRES_USER: ${DB_USER_NAME:-temporal}
       POSTGRES_PASSWORD: ${DB_USER_PASS:-changeme_db_password}
+      CONTAINER_NAME: temporal-db
     volumes:
       - './volumes/data/db/postgres/temporal:/var/lib/postgresql/data'
     networks:
@@ -76,3 +117,7 @@ networks:
   temporal:
     name: temporal
     external: false
+  proxy:
+    external: true
+  cloudflare:
+    external: true
