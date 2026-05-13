@@ -17,12 +17,60 @@ services:
     logging: *default-logging
     environment:
       TZ: ${TZ:-America/New_York}
+      DB: ${TEMPORAL_DB:-postgres12}
+      DB_PORT: ${DB_PORT:-5432}
+      POSTGRES_SEEDS: temporal-db
+      POSTGRES_USER: ${DB_USER_NAME:-temporal}
+      POSTGRES_PWD: ${DB_USER_PASS:-changeme_db_password}
+      DEFAULT_NAMESPACE: ${TEMPORAL_NAMESPACE:-default}
+      DEFAULT_NAMESPACE_RETENTION: ${TEMPORAL_NAMESPACE_RETENTION:-24h}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     ports:
       - '172.17.0.1:7233:7233'
     volumes:
       - './volumes/data/temporal:/data'
+    depends_on:
+      - temporal-db
     networks:
       - temporal
+
+  temporal-ui:
+    image: temporalio/ui:latest
+    pull_policy: always
+    container_name: temporal-ui
+    restart: always
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-America/New_York}
+      TEMPORAL_ADDRESS: temporal-app:7233
+      TEMPORAL_CORS_ORIGINS: http://${BASE_HOST_NAME:-localhost}:8080
+    ports:
+      - '172.17.0.1:8080:8080'
+    depends_on:
+      - app
+    networks:
+      - temporal
+
+  temporal-db:
+    image: postgres:latest
+    pull_policy: always
+    container_name: temporal-db
+    restart: always
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-America/New_York}
+      POSTGRES_DB: ${DB_CREATE_DATABASE_NAME:-temporal}
+      POSTGRES_USER: ${DB_USER_NAME:-temporal}
+      POSTGRES_PASSWORD: ${DB_USER_PASS:-changeme_db_password}
+    volumes:
+      - './volumes/data/db/postgres/temporal:/var/lib/postgresql/data'
+    networks:
+      - temporal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 networks:
   temporal:
