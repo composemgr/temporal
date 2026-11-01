@@ -1,0 +1,86 @@
+name: temporal
+x-logging: &default-logging
+  options:
+    max-size: '5m'
+    max-file: '1'
+  driver: json-file
+
+services:
+  app:
+    image: temporalio/auto-setup:latest
+    container_name: temporal-app
+    hostname: ${BASE_HOST_NAME:-$HOSTNAME}
+    restart: always
+    pull_policy: always
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-America/New_York}
+      DB: ${TEMPORAL_DB:-postgres12}
+      DB_PORT: ${DB_PORT:-5432}
+      POSTGRES_SEEDS: temporal-db
+      POSTGRES_USER: ${DB_USER_NAME:-temporal}
+      POSTGRES_PWD: ${DB_USER_PASS:-replace-with-a-random-password}
+      DEFAULT_NAMESPACE: ${TEMPORAL_NAMESPACE:-default}
+      DEFAULT_NAMESPACE_RETENTION: ${TEMPORAL_NAMESPACE_RETENTION:-24h}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      CONTAINER_NAME: temporal-app
+      HOSTNAME: ${BASE_HOST_NAME:-$HOSTNAME}
+    volumes:
+      - './volumes/data/temporal:/data'
+    depends_on:
+      temporal-db:
+        condition: service_started
+    networks:
+      - temporal
+  temporal-ui:
+    image: temporalio/ui:latest
+    container_name: temporal-ui
+    hostname: ${BASE_HOST_NAME:-$HOSTNAME}
+    restart: always
+    pull_policy: always
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-America/New_York}
+      TEMPORAL_ADDRESS: temporal-app:7233
+      TEMPORAL_CORS_ORIGINS: https://${BASE_HOST_NAME:-$HOSTNAME}
+      CONTAINER_NAME: temporal-ui
+      HOSTNAME: ${BASE_HOST_NAME:-$HOSTNAME}
+    depends_on:
+      app:
+        condition: service_started
+    labels:
+      - 'cloudflare.enable=true'
+      - 'cloudflare.service=http://temporal-ui:8080'
+      - 'cloudflare.hostname=${BASE_HOST_NAME:-$HOSTNAME}'
+    networks:
+      - temporal
+      - cloudflare
+  temporal-db:
+    image: postgres:latest
+    container_name: temporal-db
+    hostname: temporal-db
+    restart: always
+    pull_policy: always
+    logging: *default-logging
+    environment:
+      TZ: ${TZ:-America/New_York}
+      POSTGRES_DB: ${DB_CREATE_DATABASE_NAME:-temporal}
+      POSTGRES_USER: ${DB_USER_NAME:-temporal}
+      POSTGRES_PASSWORD: ${DB_USER_PASS:-replace-with-a-random-password}
+      CONTAINER_NAME: temporal-db
+    volumes:
+      - './volumes/db/postgres/temporal:/var/lib/postgresql:z'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER_NAME:-temporal}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - temporal
+
+networks:
+  temporal:
+    name: temporal
+    external: false
+  cloudflare:
+    external: true
