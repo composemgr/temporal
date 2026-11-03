@@ -27,6 +27,12 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       CONTAINER_NAME: temporal-app
       HOSTNAME: ${BASE_HOST_NAME:-$HOSTNAME}
+    healthcheck:
+      test: ['CMD', 'bash', '-c', 'exec 3<>/dev/tcp/127.0.0.1/7233']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     volumes:
       - './volumes/data/temporal:/data'
     depends_on:
@@ -47,6 +53,12 @@ services:
       TEMPORAL_CORS_ORIGINS: https://${BASE_HOST_NAME:-$HOSTNAME}
       CONTAINER_NAME: temporal-ui
       HOSTNAME: ${BASE_HOST_NAME:-$HOSTNAME}
+    healthcheck:
+      test: ['CMD', 'bash', '-c', 'exec 3<>/dev/tcp/127.0.0.1/8080']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     depends_on:
       app:
         condition: service_started
